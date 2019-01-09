@@ -80,7 +80,7 @@ def main():
     scale = 4
     # Get a reference to webcam #0 (the default one)
     cap = cv2.VideoCapture(0)
-    # id = 'rtsp://admin:SEAGATE2019!@192.168.1.64:554/h265/ch1/sub/av_stream'
+        # id = 'rtsp://Jerry:Alrac2018!@192.168.1.64:554/h265/ch1/sub/av_stream'
     # cap = cv2.VideoCapture(id)
     
     cap.set(3, 640) #set width
