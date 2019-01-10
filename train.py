@@ -54,7 +54,7 @@ def train(train_dir, model_save_path=None, n_neighbors=None, knn_algo='ball_tree
                     print("Image {} not suitable for training: {}".format(img_path, "Didn't find a face" if len(face_bounding_boxes) < 1 else "Found more than one face"))
             else:
                 # Add face encoding for current image to the training set
-                X.append(face_recognition.face_encodings(image, known_face_locations=face_bounding_boxes, num_jitters=10)[0])
+                X.append(face_recognition.face_encodings(image, known_face_locations=face_bounding_boxes, num_jitters=10, model="large")[0])
                 y.append(class_dir)
 
     # Determine how many neighbors to use for weighting in the KNN classifier
@@ -107,7 +107,7 @@ def predict(X_img_path, knn_clf=None, model_path=None, distance_threshold=0.5):
         return []
 
     # Find encodings for faces in the test iamge
-    faces_encodings = face_recognition.face_encodings(X_img, known_face_locations=X_face_locations)
+    faces_encodings = face_recognition.face_encodings(X_img, known_face_locations=X_face_locations, model="large")
 
     # Use the KNN model to find the best matches for the test face
     closest_distances = knn_clf.kneighbors(faces_encodings, n_neighbors=1)
