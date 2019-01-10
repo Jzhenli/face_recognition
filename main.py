@@ -22,14 +22,15 @@ def predict(X_input_img, knn_clf=None, model_path=None, distance_threshold=0.6):
             knn_clf = pickle.load(f)
 
     # Load image file and find face locations
-    X_face_locations = face_recognition.face_locations(X_input_img)
+    X_face_locations = face_recognition.face_locations(X_input_img, number_of_times_to_upsample=1, model="hog")
     
     # If no faces are found in the image, return an empty result.
     if len(X_face_locations) == 0:
         return []
 
     # Find encodings for faces in the test iamge
-    faces_encodings = face_recognition.face_encodings(X_input_img, known_face_locations=X_face_locations, num_jitters=2)
+    # note: here use "small" model as default.
+    faces_encodings = face_recognition.face_encodings(X_input_img, known_face_locations=X_face_locations, num_jitters=1)
 
     # Use the KNN model to find the best matches for the test face
     closest_distances = knn_clf.kneighbors(faces_encodings, n_neighbors=1)
@@ -56,20 +57,22 @@ def FaceDetect(frame_queue, result_queue):
             inputframe = frame_queue.get_nowait()
             if inputframe is None:
                 break
-            predictions = predict(inputframe, model_path="trained_knn_model.clf")
+            predictions = predict(inputframe, model_path="trained_knn_model.clf", distance_threshold=0.5)
             name_list = [name for name, (top, right, bottom, left) in predictions]
             if len(name_list):
                 print(get_time(), ":", ','.join(name_list))
-                while not result_queue.empty():
-                    result_queue.get_nowait()
-                result_queue.put(name_list)
+                try:
+                    result_queue.put_nowait(name_list)
+                except:
+                    result_queue.get()
+                    result_queue.put_nowait(name_list)
         except:
             pass
 
     print("Detection is done.")
 
 def main():
-    frame_queue = Queue(4)
+    frame_queue = Queue(2)
     result_queue = Queue(1)
 
     face_proc = Process(target=FaceDetect, args=(frame_queue, result_queue))
@@ -80,7 +83,7 @@ def main():
     scale = 4
     # Get a reference to webcam #0 (the default one)
     cap = cv2.VideoCapture(0)
-        # id = 'rtsp://Jerry:Alrac2018!@192.168.1.64:554/h265/ch1/sub/av_stream'
+    # id = 'rtsp://Jerry:Alrac2018!@192.168.1.64:554/h265/ch1/sub/av_stream'
     # cap = cv2.VideoCapture(id)
     
     cap.set(3, 640) #set width
@@ -92,8 +95,9 @@ def main():
         # Resize frame of video to 1/scale size for faster face recognition processing
         small_frame = cv2.resize(frame, (0, 0), fx=1.0/scale, fy=1.0/scale)
         # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-        rgb_small_frame = small_frame[:, :, ::-1]
-        face_locations = face_recognition.face_locations(rgb_small_frame)
+        rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+        # find face locations in the image
+        face_locations = face_recognition.face_locations(rgb_small_frame, number_of_times_to_upsample=1, model="hog")
         # Display the results
         for (top, right, bottom, left) in face_locations:
             # Scale back up face locations since the frame we detected in was scaled to 1/scale size
@@ -107,17 +111,17 @@ def main():
         # except:
             # pass
         # Display the resulting image
-        cv2.imshow('Video', frame)
+        cv2.imshow('Face Recognition V1.0', frame)
         
         
         
-        if count >= 4:
+        if count >= 10:
             count = 0
             try:
                 frame_queue.put_nowait(small_frame)
             except:
-                while not frame_queue.empty():
-                    frame_queue.get()
+                frame_queue.get()
+                frame_queue.put_nowait(small_frame)
         count += 1
         
         
@@ -125,8 +129,11 @@ def main():
         # 'ESC' for quit
         key = cv2.waitKey(1)
         if key == 27:
-            while not frame_queue.empty():
-                frame_queue.get_nowait()
+            try:
+                while True:
+                    frame_queue.get_nowait()
+            except:
+                pass
             frame_queue.put(None)
             face_proc.join()
             clear_queue(frame_queue)
