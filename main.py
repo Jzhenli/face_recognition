@@ -30,7 +30,7 @@ def predict(X_input_img, knn_clf=None, model_path=None, distance_threshold=0.6):
 
     # Find encodings for faces in the test iamge
     # note: here use "small" model as default.
-    faces_encodings = face_recognition.face_encodings(X_input_img, known_face_locations=X_face_locations, num_jitters=1)
+    faces_encodings = face_recognition.face_encodings(X_input_img, known_face_locations=X_face_locations, num_jitters=1, model="large")
 
     # Use the KNN model to find the best matches for the test face
     closest_distances = knn_clf.kneighbors(faces_encodings, n_neighbors=1)
@@ -57,7 +57,7 @@ def FaceDetect(frame_queue, result_queue):
             inputframe = frame_queue.get_nowait()
             if inputframe is None:
                 break
-            predictions = predict(inputframe, model_path="trained_knn_model.clf", distance_threshold=0.5)
+            predictions = predict(inputframe, model_path="trained_knn_model.clf", distance_threshold=0.6)
             name_list = [name for name, (top, right, bottom, left) in predictions]
             if len(name_list):
                 print(get_time(), ":", ','.join(name_list))
@@ -92,10 +92,10 @@ def main():
     while cap.isOpened():
         # Grab a single frame of video
         ret, frame = cap.read()
-        # Resize frame of video to 1/scale size for faster face recognition processing
-        small_frame = cv2.resize(frame, (0, 0), fx=1.0/scale, fy=1.0/scale)
         # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-        rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Resize frame of video to 1/scale size for faster face recognition processing
+        rgb_small_frame = cv2.resize(rgb_frame, (0, 0), fx=1.0/scale, fy=1.0/scale)
         # find face locations in the image
         face_locations = face_recognition.face_locations(rgb_small_frame, number_of_times_to_upsample=1, model="hog")
         # Display the results
@@ -118,10 +118,10 @@ def main():
         if count >= 10:
             count = 0
             try:
-                frame_queue.put_nowait(small_frame)
+                frame_queue.put_nowait(rgb_small_frame)
             except:
                 frame_queue.get()
-                frame_queue.put_nowait(small_frame)
+                frame_queue.put_nowait(rgb_small_frame)
         count += 1
         
         
